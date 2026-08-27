@@ -211,6 +211,10 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     retry: 'Clone again',
     reaping: 'RETRIEVAL IN PROGRESS',
     taboo: 'Violated the anti-clone taboo',
+    tabooAsk: 'Put this run on the leaderboard?',
+    tabooYes: 'Submit',
+    tabooNo: "Don't submit",
+    rankSkipped: 'Not submitted',
     rarityFine: 'SUPERIOR',
     rarityAnom: 'ANOMALOUS',
     takeover: 'PERSPECTIVE SHIFTED',
@@ -259,6 +263,10 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     retry: '重新克隆',
     reaping: '回收执行中',
     taboo: '触犯反克隆禁忌',
+    tabooAsk: '这一局要上榜吗？',
+    tabooYes: '上榜',
+    tabooNo: '不上榜',
+    rankSkipped: '未上传',
     rarityFine: '优越',
     rarityAnom: '异常',
     takeover: '视角移交',
@@ -328,7 +336,9 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
   const [upgradeOptions, setUpgradeOptions] = useState<UpgradeOption[]>([]);
   const [endInfo, setEndInfo] = useState<{ win: boolean; kills: number; eaten: number; daysUsed: number; maxCombo: number; bodies: number; elapsedMs: number } | null>(null);
   const [showRank, setShowRank] = useState(false);
-  const [rankState, setRankState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const [rankState, setRankState] = useState<'idle' | 'asking' | 'sending' | 'sent' | 'failed' | 'skipped'>('idle');
+  // 禁忌结局不自动上传，等玩家自己决定；提交后不可撤回
+  const pendingScoreRef = useRef<number | null>(null);
 
   const S = useRef({
     faction: 'rabbit' as Faction,
@@ -802,12 +812,26 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     });
     // 上传成绩：击杀数优先，同击杀比用时
     if (hasRankApi()) {
-      setRankState('sending');
-      submitScore(BOARD_HATCH, encodeHatch(s.kills, elapsedMs, Math.max(0, s.bodies - 1), s.faction, s.reapedByReaper))
-        .then(ok => setRankState(ok ? 'sent' : 'failed'));
+      const score = encodeHatch(s.kills, elapsedMs, Math.max(0, s.bodies - 1), s.faction, s.reapedByReaper);
+      if (s.reapedByReaper) {
+        // 触犯禁忌：交不交由玩家定
+        pendingScoreRef.current = score;
+        setRankState('asking');
+      } else {
+        setRankState('sending');
+        submitScore(BOARD_HATCH, score).then(ok => setRankState(ok ? 'sent' : 'failed'));
+      }
     }
     phaseRef.current = 'ended';
     setPhase('ended');
+  };
+
+  const submitPendingScore = () => {
+    const score = pendingScoreRef.current;
+    if (score === null) return;
+    pendingScoreRef.current = null;
+    setRankState('sending');
+    submitScore(BOARD_HATCH, score).then(ok => setRankState(ok ? 'sent' : 'failed'));
   };
 
   // ---------- 主循环 ----------
@@ -1753,6 +1777,8 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     s.arena = { l: WALL, t: WALL, r: W - WALL, b: H - WALL };
     s.reaper = null;
     s.reapedByReaper = false;
+    pendingScoreRef.current = null;
+    setRankState('idle');
     s.shakeUntil = 0; s.shakeAmp = 0; s.hitstopUntil = 0;
     countdownNumRef.current = -1;
     for (let i = 0; i < INITIAL_CLONES; i++) {
@@ -2043,11 +2069,32 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
                 <p>{T.statCombo} ×{endInfo.maxCombo}</p>
                 <p>{T.statBodies} {endInfo.bodies}</p>
               </div>
-              <p className="text-[12px] font-mono text-[#E8833A]/55 h-4">
-                {rankState === 'sending' && T.rankSending}
-                {rankState === 'sent' && T.rankSent}
-                {rankState === 'failed' && T.rankFailed}
-              </p>
+              {rankState === 'asking' ? (
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-[12px] text-[#FF6B4A]">{T.tabooAsk}</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={submitPendingScore}
+                      className="rounded-full bg-[#FF6B4A] px-5 py-1.5 text-[12px] font-bold text-[#12100D] transition-colors hover:bg-[#FF8A6B]"
+                    >
+                      {T.tabooYes}
+                    </button>
+                    <button
+                      onClick={() => { pendingScoreRef.current = null; setRankState('skipped'); }}
+                      className="rounded-full border border-[#E8833A]/40 px-5 py-1.5 text-[12px] text-[#E8833A]/70 transition-colors hover:text-[#E8833A]"
+                    >
+                      {T.tabooNo}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[12px] font-mono text-[#E8833A]/55 h-4">
+                  {rankState === 'sending' && T.rankSending}
+                  {rankState === 'sent' && T.rankSent}
+                  {rankState === 'failed' && T.rankFailed}
+                  {rankState === 'skipped' && T.rankSkipped}
+                </p>
+              )}
               <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowRank(true)}
