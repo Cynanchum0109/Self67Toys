@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Volume2, VolumeX, Trophy, RotateCw } from 'lucide-react';
 import Leaderboard from '@/shared/Leaderboard';
-import { getMyRank, hasRankApi, setOrientation, submitScore } from '@/shared/toy';
+import { hasRankApi, setOrientation, submitScore } from '@/shared/toy';
 import { BOARD_HATCH, decodeHatch, encodeHatch, HATCH_THEME, RCOP_TEAM } from '@/shared/boards';
 
 
@@ -211,9 +211,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     retry: 'Clone again',
     reaping: 'RETRIEVAL IN PROGRESS',
     taboo: 'Violated the anti-clone taboo',
-    askThis: 'This run',
-    askCurrent: 'On the board',
-    askNone: 'no entry yet',
+    tabooAsk: 'Put this run on the leaderboard?',
     tabooYes: 'Submit',
     tabooNo: "Don't submit",
     rankSkipped: 'Not submitted',
@@ -265,11 +263,9 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     retry: '重新克隆',
     reaping: '回收执行中',
     taboo: '触犯反克隆禁忌',
-    askThis: '本局',
-    askCurrent: '榜上',
-    askNone: '还没有成绩',
-    tabooYes: '上传',
-    tabooNo: '不上传',
+    tabooAsk: '这一局要上榜吗？',
+    tabooYes: '上榜',
+    tabooNo: '不上榜',
     rankSkipped: '未上传',
     rarityFine: '优越',
     rarityAnom: '异常',
@@ -343,7 +339,6 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
   const [rankState, setRankState] = useState<'idle' | 'asking' | 'sending' | 'sent' | 'failed' | 'skipped'>('idle');
   // 禁忌结局不自动上传，等玩家自己决定；提交后不可撤回
   const pendingScoreRef = useRef<number | null>(null);
-  const [currentBest, setCurrentBest] = useState<{ rank: number; score: number } | null>(null);
 
   const S = useRef({
     faction: 'rabbit' as Faction,
@@ -817,35 +812,18 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     });
     // 上传成绩：击杀数优先，同击杀比用时
     if (hasRankApi()) {
-      // 交不交由玩家定，顺便把榜上现有成绩拉出来对比
-      pendingScoreRef.current = encodeHatch(
-        s.kills,
-        elapsedMs,
-        Math.max(0, s.bodies - 1),
-        s.faction,
-        s.reapedByReaper,
-      );
-      setCurrentBest(null);
-      setRankState('asking');
-      getMyRank(BOARD_HATCH, 'all').then(my => {
-        if (my?.ranked && typeof my.score === 'number') setCurrentBest({ rank: my.rank ?? 0, score: my.score });
-      });
+      const score = encodeHatch(s.kills, elapsedMs, Math.max(0, s.bodies - 1), s.faction, s.reapedByReaper);
+      if (s.reapedByReaper) {
+        // 触犯禁忌：交不交由玩家定
+        pendingScoreRef.current = score;
+        setRankState('asking');
+      } else {
+        setRankState('sending');
+        submitScore(BOARD_HATCH, score).then(ok => setRankState(ok ? 'sent' : 'failed'));
+      }
     }
     phaseRef.current = 'ended';
     setPhase('ended');
-  };
-
-  // 结算页用的一行文字版成绩（榜单里是带颜色的两行版）
-  const renderRunLine = (score: number | null, l: 'zh' | 'en'): string => {
-    if (score === null) return '—';
-    const d = decodeHatch(score);
-    const kills = `${l === 'en' ? 'Kills' : '击杀数'} ${d.kills}`;
-    if (d.deaths === null || d.team === null) return `${kills} · ${d.seconds}s`;
-    const side = RCOP_TEAM[d.team];
-    const body = `${kills} · ${l === 'en' ? side.en : side.zh} · ${d.seconds}s · ${
-      l === 'en' ? `killed ${d.deaths}×` : `被击杀 ${d.deaths} 次`
-    }`;
-    return d.reaped ? `${body} · ${T.taboo}` : body;
   };
 
   const submitPendingScore = () => {
@@ -2093,17 +2071,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
               </div>
               {rankState === 'asking' ? (
                 <div className="flex flex-col items-center gap-2">
-                  <div className="flex flex-col items-center gap-0.5 font-mono text-[11px]">
-                    <p className="text-[#FFF7EE]/85">
-                      {T.askThis}　{renderRunLine(pendingScoreRef.current, lang)}
-                    </p>
-                    <p className="text-[#E8833A]/60">
-                      {T.askCurrent}　
-                      {currentBest
-                        ? `#${currentBest.rank} · ${renderRunLine(currentBest.score, lang)}`
-                        : T.askNone}
-                    </p>
-                  </div>
+                  <p className="text-[12px] text-[#FF6B4A]">{T.tabooAsk}</p>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={submitPendingScore}
