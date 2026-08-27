@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Volume2, VolumeX, Trophy, RotateCw } from 'lucide-react';
 import Leaderboard from '@/shared/Leaderboard';
-import { decodeScore, encodeScore, hasRankApi, submitScore } from '@/shared/toy';
+import { decodeScore, encodeScore, hasRankApi, setOrientation, submitScore } from '@/shared/toy';
 import { BOARD_HATCH, HATCH_THEME } from '@/shared/boards';
 
 
@@ -1684,8 +1684,10 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
   }, [draw]);
 
   // 移动端进入游戏时请求浏览器全屏（须在用户手势内调用，隐藏地址栏减少误触/边缘手势）
-  // 锁定横屏：多数内核要求先进全屏；不支持时回落到 CSS 旋转（shellStyle）
+  // 锁定横屏：优先用 Toy 容器自己的朝向控制，其次才是浏览器的 screen.orientation
+  // （后者多数内核要求先进全屏）；都不支持时回落到 CSS 旋转（见 shellStyle）
   const lockLandscape = () => {
+    setOrientation('landscape');
     const orientation = window.screen?.orientation as (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined;
     try {
       orientation?.lock?.('landscape')?.catch(() => {});
@@ -1700,6 +1702,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
   };
   useEffect(() => () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    setOrientation('auto');
     try { (window.screen?.orientation as ScreenOrientation & { unlock?: () => void })?.unlock?.(); } catch { /* 忽略 */ }
   }, []);
 

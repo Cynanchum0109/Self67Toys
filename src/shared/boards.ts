@@ -21,21 +21,24 @@ export const RCOP_ENDINGS = [
 ] as const;
 export type RcopEnding = (typeof RCOP_ENDINGS)[number];
 
-const RCOP_POWER_MAX = 999_999; // 战力×100 的上限
+// SDK 限制 score ∈ [-2^24, 2^24-1]，所以把队伍与结局压进低 4 位，剩下的全给战力。
+// score = 战力×100 × 16 + (结局序号×2 + 队伍)
+const RCOP_COMBO_SPAN = 16; // 6 个结局 × 2 个队伍 = 12，占 4 位
+const RCOP_POWER_MAX = Math.floor((2 ** 24 - 1) / RCOP_COMBO_SPAN); // 战力×100 的上限
 
 export const encodeRcop = (power: number, ending: string, team: 0 | 1): number => {
   const centi = Math.min(RCOP_POWER_MAX, Math.max(0, Math.round(power * 100)));
   const idx = Math.max(0, RCOP_ENDINGS.indexOf(ending as RcopEnding));
-  return centi * 1000 + idx * 10 + team;
+  return centi * RCOP_COMBO_SPAN + idx * 2 + team;
 };
 
 export const decodeRcop = (score: number): { power: number; ending: RcopEnding; team: 0 | 1 } => {
   const s = Math.max(0, Math.floor(score));
-  const rest = s % 1000;
+  const combo = s % RCOP_COMBO_SPAN;
   return {
-    power: Math.floor(s / 1000) / 100,
-    ending: RCOP_ENDINGS[Math.floor(rest / 10)] ?? RCOP_ENDINGS[0],
-    team: (rest % 10 === 1 ? 1 : 0) as 0 | 1,
+    power: Math.floor(s / RCOP_COMBO_SPAN) / 100,
+    ending: RCOP_ENDINGS[Math.floor(combo / 2)] ?? RCOP_ENDINGS[0],
+    team: (combo % 2) as 0 | 1,
   };
 };
 

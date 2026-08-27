@@ -52,13 +52,18 @@ export const hasRankApi = () => {
 };
 
 // ---------- 分数编码 ----------
-// Toy 榜单只接受单个整数，这里把「击杀数 + 用时」压成一个数：
-//   score = kills * TIME_SPAN + (TIME_SPAN - 1 - 用时厘秒)
+// Toy 榜单只接受单个整数，且 SDK 限制 score ∈ [-2^24, 2^24-1]。
+// 孵化场把「击杀数 + 用时」压成一个数：
+//   score = 击杀数 × TIME_SPAN + (TIME_SPAN - 1 - 用时厘秒)
 // 击杀多的一定更大；击杀相同时，用时短的余数更大 → 排在前面。
-const TIME_SPAN = 100_000; // 余数上限，对应 999.99 秒，足够覆盖 3 分钟一局
+export const SCORE_MIN = -(2 ** 24);
+export const SCORE_MAX = 2 ** 24 - 1;
+
+const TIME_SPAN = 20_000; // 余数上限，对应 199.99 秒，覆盖 3 分钟一局
+const KILL_MAX = Math.floor(SCORE_MAX / TIME_SPAN); // 击杀数上限，防止越界
 
 export const encodeScore = (kills: number, elapsedMs: number): number => {
-  const k = Math.max(0, Math.floor(kills));
+  const k = Math.min(KILL_MAX, Math.max(0, Math.floor(kills)));
   const cs = Math.min(TIME_SPAN - 1, Math.max(0, Math.round(elapsedMs / 10)));
   return k * TIME_SPAN + (TIME_SPAN - 1 - cs);
 };
@@ -74,8 +79,10 @@ export const decodeScore = (score: number): { kills: number; seconds: number } =
 export async function submitScore(board: number, score: number): Promise<boolean> {
   const t = api();
   if (!t?.submitScore) return false;
+  // 越界或非整数会被 SDK 直接判 invalid_param，这里统一夹紧
+  const safe = Math.min(SCORE_MAX, Math.max(SCORE_MIN, Math.round(score)));
   try {
-    await withTimeout(Promise.resolve(t.submitScore({ board, score })));
+    await withTimeout(Promise.resolve(t.submitScore({ board, score: safe })));
     return true;
   } catch {
     return false;
@@ -106,3 +113,18 @@ export const avatarUrl = (raw?: string): string => {
   if (raw.startsWith('http://')) return 'https://' + raw.slice(7);
   return raw.startsWith('https://') ? raw : '';
 };
+
+// ---------- 容器朝向 ----------
+// Toy 容器自己支持锁定朝向，比 screen.orientation.lock 可靠（后者多数内核要求先进全屏）。
+export type Orientation = 'portrait' | 'landscape' | 'auto';
+
+export async function setOrientation(orientation: Orientation): Promise<boolean> {
+  const t = api() as (ToyApi & { setContainerMode?: (o: { orientation?: Orientation; immersive?: boolean }) => Promise<void> }) | null;
+  if (!t?.setContainerMode) return false;
+  try {
+    await withTimeout(Promise.resolve(t.setContainerMode({ orientation })));
+    return true;
+  } catch {
+    return false;
+  }
+}
