@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Trophy, X } from 'lucide-react';
 import Leaderboard from '@/shared/Leaderboard';
-import { BOARD_UFO, decodeUfo, encodeUfo, UFO_SHOOTDOWN_BONUS, UFO_THEME } from '@/shared/boards';
+import { BOARD_UFO, decodeUfo, encodeUfo, UFO_ENDING_LABEL, UFO_SHOOTDOWN_BONUS, UFO_THEME } from '@/shared/boards';
 import { hasRankApi, submitScore } from '@/shared/toy';
 import bgPng   from './asset/background.png';
 import dog1Png from './asset/dog1.png';
@@ -127,7 +127,7 @@ const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
     setIsPlaying(false);
     if (!hasRankApi()) return;
     const seconds = (performance.now() - s.startedAt) / 1000;
-    submitScore(BOARD_UFO, encodeUfo(seconds, cause === 'won'));
+    submitScore(BOARD_UFO, encodeUfo(seconds, cause));
   };
 
   const beamTopY = () => S.current.ufoY + UFO_IH / 2;
@@ -638,11 +638,16 @@ const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
           title={T.rank}
           theme={UFO_THEME}
           renderScore={(score, l) => {
-            const { points, shotDown } = decodeUfo(score);
+            const { points, ending } = decodeUfo(score);
             return (
               <span className="flex flex-col items-end leading-tight">
                 <span className="text-[12px] font-bold text-[#6BD4C0]">{points}{l === 'en' ? ' pts' : '分'}</span>
-                {shotDown && <span className="text-[10px] text-[#F2B6FB]">🛸 +{UFO_SHOOTDOWN_BONUS}</span>}
+                {ending !== 'unknown' && (
+                  <span className={`text-[10px] ${ending === 'won' ? 'text-[#F2B6FB]' : 'text-[#B9A3E0]'}`}>
+                    {ending === 'won' && `🛸 +${UFO_SHOOTDOWN_BONUS} · `}
+                    {UFO_ENDING_LABEL[ending][l]}
+                  </span>
+                )}
               </span>
             );
           }}

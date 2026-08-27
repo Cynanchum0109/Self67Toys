@@ -210,6 +210,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     statBodies: 'Bodies replaced',
     retry: 'Clone again',
     reaping: 'RETRIEVAL IN PROGRESS',
+    taboo: 'Violated the anti-clone taboo',
     rarityFine: 'SUPERIOR',
     rarityAnom: 'ANOMALOUS',
     takeover: 'PERSPECTIVE SHIFTED',
@@ -257,6 +258,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     statBodies: '更换次数',
     retry: '重新克隆',
     reaping: '回收执行中',
+    taboo: '触犯反克隆禁忌',
     rarityFine: '优越',
     rarityAnom: '异常',
     takeover: '视角移交',
@@ -364,6 +366,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     pendingLevelups: 0, lastTakeoverAt: -99999,
     arena: { l: WALL, t: WALL, r: W - WALL, b: H - WALL }, // 终局缩圈用
     reaper: null as { x: number; y: number } | null,
+    reapedByReaper: false, // 活到第七天、最后被清算者抓走
     shakeUntil: 0, shakeAmp: 0, hitstopUntil: 0,
     // 瞄准
     aimX: W / 2, aimY: 0,
@@ -800,7 +803,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     // 上传成绩：击杀数优先，同击杀比用时
     if (hasRankApi()) {
       setRankState('sending');
-      submitScore(BOARD_HATCH, encodeHatch(s.kills, elapsedMs, Math.max(0, s.bodies - 1), s.faction))
+      submitScore(BOARD_HATCH, encodeHatch(s.kills, elapsedMs, Math.max(0, s.bodies - 1), s.faction, s.reapedByReaper))
         .then(ok => setRankState(ok ? 'sent' : 'failed'));
     }
     phaseRef.current = 'ended';
@@ -1150,6 +1153,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
       // 碰到玩家：终局（清算无视换体无敌）
       if (dist2(rp.x, rp.y, s.px, s.py) < 18 * 18) {
         addShake(6, 400);
+        s.reapedByReaper = true;
         finish(false, now);
         return;
       }
@@ -1748,6 +1752,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     s.eaten = 0; s.pendingLevelups = 0; s.lastTakeoverAt = -99999;
     s.arena = { l: WALL, t: WALL, r: W - WALL, b: H - WALL };
     s.reaper = null;
+    s.reapedByReaper = false;
     s.shakeUntil = 0; s.shakeAmp = 0; s.hitstopUntil = 0;
     countdownNumRef.current = -1;
     for (let i = 0; i < INITIAL_CLONES; i++) {
@@ -2067,7 +2072,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
               title={T.rankView}
               theme={HATCH_THEME}
               renderScore={(score, l) => {
-                const { kills, seconds, deaths, team } = decodeHatch(score);
+                const { kills, seconds, deaths, team, reaped } = decodeHatch(score);
                 // 早期记录没有被击杀次数与阵营，按当时的样子显示
                 if (deaths === null || team === null) {
                   return (
@@ -2087,9 +2092,15 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
                         ? `Time ${seconds}s · Killed ${deaths}×`
                         : `用时 ${seconds}s · 被击杀 ${deaths} 次`}
                     </span>
+                    {reaped && (
+                      <span className="text-[10px] font-bold tracking-wide text-[#FF6B4A]">{T.taboo}</span>
+                    )}
                   </span>
                 );
               }}
+              rowClass={score =>
+                decodeHatch(score).reaped ? 'rounded-lg bg-[#3A1A10] ring-1 ring-[#FF6B4A]/60' : ''
+              }
               onClose={() => setShowRank(false)}
             />
           )}

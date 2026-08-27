@@ -59,17 +59,28 @@ export const RCOP_ENDING_LABEL: Record<RcopEnding, { zh: string; en: string }> =
 };
 
 // ---------- 同事是外星人？！：存活时间，击落飞碟 +20 ----------
-// score = (存活秒数 + 击落加成20) × 10 + 击落标记
+// score = (存活秒数 + 击落加成) × 10 + 结局码
+// 结局码 0 只出现在早期记录里（当时只记了「有没有击落」），显示时不标结局。
 export const UFO_SHOOTDOWN_BONUS = 20;
 
-export const encodeUfo = (seconds: number, shotDown: boolean): number => {
-  const base = Math.max(0, Math.round(seconds)) + (shotDown ? UFO_SHOOTDOWN_BONUS : 0);
-  return base * 10 + (shotDown ? 1 : 0);
+export type UfoEnding = 'unknown' | 'won' | 'alien' | 'human';
+const UFO_ENDING_CODE: Record<Exclude<UfoEnding, 'unknown'>, number> = { won: 1, alien: 2, human: 3 };
+const UFO_CODE_ENDING: Record<number, UfoEnding> = { 0: 'unknown', 1: 'won', 2: 'alien', 3: 'human' };
+
+export const UFO_ENDING_LABEL: Record<Exclude<UfoEnding, 'unknown'>, { zh: string; en: string }> = {
+  won: { zh: '抓走了外星人', en: 'Caught the alien' },
+  alien: { zh: '被外星人抓走了', en: 'Abducted by the alien' },
+  human: { zh: '被人类抓走了', en: 'Caught by the humans' },
 };
 
-export const decodeUfo = (score: number): { points: number; shotDown: boolean } => {
+export const encodeUfo = (seconds: number, ending: Exclude<UfoEnding, 'unknown'>): number => {
+  const base = Math.max(0, Math.round(seconds)) + (ending === 'won' ? UFO_SHOOTDOWN_BONUS : 0);
+  return base * 10 + UFO_ENDING_CODE[ending];
+};
+
+export const decodeUfo = (score: number): { points: number; ending: UfoEnding } => {
   const s = Math.max(0, Math.floor(score));
-  return { points: Math.floor(s / 10), shotDown: s % 10 === 1 };
+  return { points: Math.floor(s / 10), ending: UFO_CODE_ENDING[s % 10] ?? 'unknown' };
 };
 
 // ---------- 碰到就要结婚喔～：坚持的秒数 ----------
@@ -143,7 +154,7 @@ export const DINO_THEME: LeaderboardTheme = {
 //   score = 击杀数 × 100000 + 余数
 //   余数 ≥ 80000  → 早期记录：余数 = 99999 - 用时厘秒，没有被击杀次数与阵营
 //   余数 20000..79999 → 现在的记录：这段是早期编码用不到的区间
-//     余数 = 20000 + (255-存活秒)×128 + (15-被击杀次数)×8 + 阵营
+//     余数 = 20000 + (255-存活秒)×128 + (15-被击杀次数)×8 + 清算标记×2 + 阵营
 // 最大 159×100000 + 99999 = 15,999,999，没超 SDK 的 2^24 上限。
 // 代价：击杀数相同时早期记录的余数更大，会固定排在新记录前面。
 const HATCH_KILL_SPAN = 100_000;
@@ -156,9 +167,11 @@ const HATCH_KILL_MAX = Math.floor((2 ** 24 - 1) / HATCH_KILL_SPAN); // 167
 export interface HatchEntry {
   kills: number;
   seconds: number;
-  /** 早期记录没有这两项 */
+  /** 早期记录没有下面这几项 */
   deaths: number | null;
   team: 0 | 1 | null;
+  /** 活到第七天、最后被清算者带走 */
+  reaped: boolean;
 }
 
 export const encodeHatch = (
@@ -166,6 +179,7 @@ export const encodeHatch = (
   elapsedMs: number,
   deaths: number,
   faction: 'rabbit' | 'reindeer',
+  reaped: boolean,
 ): number => {
   const k = Math.min(HATCH_KILL_MAX, Math.max(0, Math.floor(kills)));
   const sec = Math.min(HATCH_SEC_MAX, Math.max(0, Math.round(elapsedMs / 1000)));
@@ -174,6 +188,7 @@ export const encodeHatch = (
     HATCH_NEW_FLOOR +
     (HATCH_SEC_MAX - sec) * 128 +
     (HATCH_DEATH_MAX - d) * 8 +
+    (reaped ? 2 : 0) +
     (faction === 'rabbit' ? 1 : 0);
   return k * HATCH_KILL_SPAN + rest;
 };
@@ -185,12 +200,18 @@ export const decodeHatch = (score: number): HatchEntry => {
 
   // 早期记录：余数直接是 99999 - 用时厘秒
   if (rest >= HATCH_LEGACY_FLOOR) {
-    return { kills, seconds: Math.round((HATCH_KILL_SPAN - 1 - rest) / 10) / 10, deaths: null, team: null };
+    return {
+      kills,
+      seconds: Math.round((HATCH_KILL_SPAN - 1 - rest) / 10) / 10,
+      deaths: null,
+      team: null,
+      reaped: false,
+    };
   }
 
   // 更早一版短命的编码落在这段，读不回来，只保留击杀数
   if (rest < HATCH_NEW_FLOOR) {
-    return { kills, seconds: 0, deaths: null, team: null };
+    return { kills, seconds: 0, deaths: null, team: null, reaped: false };
   }
 
   const t = rest - HATCH_NEW_FLOOR;
@@ -199,7 +220,8 @@ export const decodeHatch = (score: number): HatchEntry => {
     kills,
     seconds: HATCH_SEC_MAX - Math.floor(t / 128),
     deaths: HATCH_DEATH_MAX - Math.floor(low / 8),
-    team: (low % 8 === 1 ? 1 : 0) as 0 | 1,
+    team: ((low & 1) as 0 | 1),
+    reaped: (low & 2) !== 0,
   };
 };
 

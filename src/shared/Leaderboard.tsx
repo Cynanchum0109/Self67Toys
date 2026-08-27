@@ -30,6 +30,8 @@ interface LeaderboardProps {
   theme: LeaderboardTheme;
   /** 把编码后的整数分数渲染成这一榜自己的样子 */
   renderScore: (score: number, lang: 'zh' | 'en') => React.ReactNode;
+  /** 需要突出某些成绩时，按分数追加行样式 */
+  rowClass?: (score: number) => string;
   onClose: () => void;
 }
 
@@ -40,7 +42,7 @@ const TEXT = {
   en: { day: 'Day', week: 'Week', month: 'Month', all: 'All', loading: '…', dash: '—', mine: 'My rank', close: 'Close' },
 };
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ board, lang = 'zh', title, theme, renderScore, onClose }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ board, lang = 'zh', title, theme, renderScore, rowClass, onClose }) => {
   const T = TEXT[lang];
   const [period, setPeriod] = useState<RankPeriod>('all');
   const [entries, setEntries] = useState<RankEntry[]>([]);
@@ -90,7 +92,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ board, lang = 'zh', title, th
               {entries.map((e, i) => {
                 const url = avatarUrl(e.avatar || e.face);
                 return (
-                  <li key={`${e.rank}-${i}`} className={`flex items-center gap-2.5 px-2 py-1.5 ${theme.rowOdd}`}>
+                  <li
+                    key={`${e.rank}-${i}`}
+                    className={`flex items-center gap-2.5 px-2 py-1.5 ${theme.rowOdd} ${rowClass?.(e.score) ?? ''}`}
+                  >
                     <strong className={`w-6 shrink-0 text-center font-mono text-[13px] ${e.rank <= 3 ? theme.rankTop : theme.rankNormal}`}>
                       {e.rank || i + 1}
                     </strong>
