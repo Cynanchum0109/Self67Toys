@@ -13,13 +13,13 @@ const TEXT = {
   zh: {
     quote: '那呼唤爱的样子如此美丽……',
     rcopName: 'R公司孵化场观测',
-    ufoName: 'UFO抓狗游戏',
+    ufoName: '同事是外星人？！',
     dinoName: '碰到就要结婚喔～',
   },
   en: {
     quote: '那呼唤爱的样子如此美丽……',
-    rcopName: 'R公司孵化场观测',
-    ufoName: 'UFO dog-catching game',
+    rcopName: 'R Corp Hatchery Observation',
+    ufoName: 'My Coworker Is an Alien?!',
     dinoName: 'Touch and you must marry~',
   },
 };
