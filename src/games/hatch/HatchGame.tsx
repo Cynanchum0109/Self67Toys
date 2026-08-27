@@ -1977,6 +1977,13 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
                 </button>
               </div>
               <p className="text-[14px] text-[#F5A45B]/90 tracking-wide">{T.hint}</p>
+              <button
+                onClick={() => setShowRank(true)}
+                className="flex items-center gap-2 rounded-full border border-[#E8833A]/50 px-6 py-2 text-[14px] text-[#E8833A] transition-colors hover:bg-[#E8833A]/10"
+              >
+                <Trophy size={16} />
+                {T.rankView}
+              </button>
             </div>
           )}
 
