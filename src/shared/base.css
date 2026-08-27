@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* Tailwind v4 的自动来源探测在多入口结构下扫不全，显式指定 */
+@source "../../src";
+@source "../../apps";
+
+/* Toy 沙箱里不外链字体，改用系统字体栈 */
+:root {
+  --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-serif: Georgia, "Songti SC", "SimSun", "Noto Serif SC", serif;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: #F9F8F4;
+  color: #1B1B1B;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+/* 纸纹噪点覆盖层 */
+body.paper::after {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+.serif-text { font-family: var(--font-serif); }
+
+@keyframes momoBreathe {
+  0%   { transform: scaleY(1); }
+  42%  { transform: scaleY(0.88); }
+  62%  { transform: scaleY(1.04); }
+  78%  { transform: scaleY(0.97); }
+  90%  { transform: scaleY(1.01); }
+  100% { transform: scaleY(1); }
+}
+.animate-breathe {
+  animation: momoBreathe 3.4s ease-in-out infinite;
+  transform-origin: center bottom;
+  will-change: transform;
+}
+
+@keyframes fadeFloatUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-float-in { animation: fadeFloatUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.float-delay-1 { animation-delay: 0.12s; }
+.float-delay-2 { animation-delay: 0.24s; }
+.float-delay-3 { animation-delay: 0.38s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-breathe, .animate-float-in { animation: none; }
+}
+
+::selection { background-color: #CBE9E1; color: #4E4462; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #F0EDF5; }
+::-webkit-scrollbar-thumb { background: #C6B8D8; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #A99BC1; }
+:focus-visible { outline: 2px solid #6FCBB8; outline-offset: 2px; }
