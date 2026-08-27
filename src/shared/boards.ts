@@ -150,19 +150,28 @@ export const DINO_THEME: LeaderboardTheme = {
 };
 
 // ---------- 孵化场：击杀数为主，用时 / 被击杀次数作同分排序 ----------
-// 榜上有两代数据，靠余数区间区分，早期记录必须继续读对：
-//   score = 击杀数 × 100000 + 余数
-//   余数 ≥ 80000  → 早期记录：余数 = 99999 - 用时厘秒，没有被击杀次数与阵营
-//   余数 20000..79999 → 现在的记录：这段是早期编码用不到的区间
-//     余数 = 20000 + (255-存活秒)×128 + (15-被击杀次数)×8 + 清算标记×2 + 阵营
-// 最大 159×100000 + 99999 = 15,999,999，没超 SDK 的 2^24 上限。
-// 代价：击杀数相同时早期记录的余数更大，会固定排在新记录前面。
+// 榜上有三类数据，靠分数区间区分，早期记录必须继续读对：
+//
+//   ① 触犯禁忌（活到第七天被清算者带走）：整段抬到 16,000,000 以上，
+//      恒高于任何普通成绩 —— 达成即榜首，禁忌之间再比击杀数。
+//      score = 16000000 + 击杀数×4800 + (255-存活秒)×32 + (15-被击杀次数)×2 + 阵营
+//
+//   ② 现在的普通成绩：score = 击杀数×100000 + 余数，余数落在 20000..79999
+//      余数 = 20000 + (255-存活秒)×128 + (15-被击杀次数)×8 + 阵营
+//
+//   ③ 早期记录：score = 击杀数×100000 + 余数，余数 ≥ 80000（= 99999 - 用时厘秒）
+//      当时没记被击杀次数与阵营。
+//
+// 普通成绩上限 159×100000+99999 = 15,999,999，正好卡在禁忌段之下；
+// 禁忌段上限 16000000+159×4800+2431 = 16,765,631，仍在 SDK 的 2^24 内。
 const HATCH_KILL_SPAN = 100_000;
 const HATCH_LEGACY_FLOOR = 80_000; // 余数到这个值以上算早期记录
-const HATCH_NEW_FLOOR = 20_000; // 新记录余数的起点
+const HATCH_NEW_FLOOR = 20_000; // 普通成绩余数的起点
+const HATCH_TABOO_FLOOR = 16_000_000; // 禁忌段起点
+const HATCH_TABOO_SPAN = 4_800; // 禁忌段里每一个击杀数占的宽度
 const HATCH_SEC_MAX = 255;
 const HATCH_DEATH_MAX = 15;
-const HATCH_KILL_MAX = Math.floor((2 ** 24 - 1) / HATCH_KILL_SPAN); // 167
+const HATCH_KILL_MAX = 159; // 克隆池上限，普通成绩不得越过禁忌段
 
 export interface HatchEntry {
   kills: number;
@@ -184,21 +193,44 @@ export const encodeHatch = (
   const k = Math.min(HATCH_KILL_MAX, Math.max(0, Math.floor(kills)));
   const sec = Math.min(HATCH_SEC_MAX, Math.max(0, Math.round(elapsedMs / 1000)));
   const d = Math.min(HATCH_DEATH_MAX, Math.max(0, Math.floor(deaths)));
+  const side = faction === 'rabbit' ? 1 : 0;
+
+  if (reaped) {
+    return (
+      HATCH_TABOO_FLOOR +
+      k * HATCH_TABOO_SPAN +
+      (HATCH_SEC_MAX - sec) * 32 +
+      (HATCH_DEATH_MAX - d) * 2 +
+      side
+    );
+  }
+
   const rest =
-    HATCH_NEW_FLOOR +
-    (HATCH_SEC_MAX - sec) * 128 +
-    (HATCH_DEATH_MAX - d) * 8 +
-    (reaped ? 2 : 0) +
-    (faction === 'rabbit' ? 1 : 0);
+    HATCH_NEW_FLOOR + (HATCH_SEC_MAX - sec) * 128 + (HATCH_DEATH_MAX - d) * 8 + side;
   return k * HATCH_KILL_SPAN + rest;
 };
 
 export const decodeHatch = (score: number): HatchEntry => {
   const s = Math.max(0, Math.floor(score));
+
+  // ① 禁忌段
+  if (s >= HATCH_TABOO_FLOOR) {
+    const t = s - HATCH_TABOO_FLOOR;
+    const r = t % HATCH_TABOO_SPAN;
+    const low = r % 32;
+    return {
+      kills: Math.floor(t / HATCH_TABOO_SPAN),
+      seconds: HATCH_SEC_MAX - Math.floor(r / 32),
+      deaths: HATCH_DEATH_MAX - Math.floor(low / 2),
+      team: ((low & 1) as 0 | 1),
+      reaped: true,
+    };
+  }
+
   const kills = Math.floor(s / HATCH_KILL_SPAN);
   const rest = s % HATCH_KILL_SPAN;
 
-  // 早期记录：余数直接是 99999 - 用时厘秒
+  // ③ 早期记录：余数直接是 99999 - 用时厘秒
   if (rest >= HATCH_LEGACY_FLOOR) {
     return {
       kills,
@@ -214,6 +246,7 @@ export const decodeHatch = (score: number): HatchEntry => {
     return { kills, seconds: 0, deaths: null, team: null, reaped: false };
   }
 
+  // ② 现在的普通成绩
   const t = rest - HATCH_NEW_FLOOR;
   const low = t % 128;
   return {
@@ -221,7 +254,7 @@ export const decodeHatch = (score: number): HatchEntry => {
     seconds: HATCH_SEC_MAX - Math.floor(t / 128),
     deaths: HATCH_DEATH_MAX - Math.floor(low / 8),
     team: ((low & 1) as 0 | 1),
-    reaped: (low & 2) !== 0,
+    reaped: false,
   };
 };
 
