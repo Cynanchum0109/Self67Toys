@@ -2072,9 +2072,9 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
                 return (
                   <span className="flex flex-col items-end leading-tight">
                     <span className="text-[12px] font-bold" style={{ color: side.color }}>
-                      Score：{kills} · {l === 'en' ? side.en : side.zh}
+                      {l === 'en' ? 'Kills' : '击杀数'}：{kills} · {l === 'en' ? side.en : side.zh}
                     </span>
-                    <span className="text-[10px] text-[#E8833A]/45">
+                    <span className="text-[10px] text-[#F5C89A]">
                       {l === 'en'
                         ? `Time ${seconds}s · Killed ${deaths}×`
                         : `用时 ${seconds}s · 被击杀 ${deaths} 次`}
