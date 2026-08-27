@@ -10,29 +10,28 @@ interface LeaderboardProps {
 
 const PERIODS: RankPeriod[] = ['day', 'week', 'month', 'all'];
 
+// 只保留跑起来必需的功能性标签，没有额外文案
 const TEXT = {
   zh: {
-    title: '孵化场存活榜',
-    rule: '击杀多者在上，击杀相同则用时短者在上',
+    title: '排行榜',
     day: '今日', week: '本周', month: '本月', all: '总榜',
-    loading: '正在读取排行榜…',
-    empty: '还没有人上榜，来当第一名吧',
-    error: '排行榜读取失败，请稍后再试',
-    unavailable: '请在 B 站 Toy 页面打开，才能看到排行榜',
+    loading: '…',
+    empty: '—',
+    error: '—',
+    unavailable: '—',
     mine: '我的排名',
-    unranked: '还没有成绩',
+    unranked: '—',
     kills: '杀', close: '关闭',
   },
   en: {
-    title: 'Hatchery Survival Board',
-    rule: 'More kills ranks higher; ties broken by shorter time',
-    day: 'Today', week: 'Week', month: 'Month', all: 'All time',
-    loading: 'Loading leaderboard…',
-    empty: 'No one on the board yet — be the first',
-    error: 'Failed to load the leaderboard, try again later',
-    unavailable: 'Open this on the Bilibili Toy page to see the leaderboard',
+    title: 'Leaderboard',
+    day: 'Day', week: 'Week', month: 'Month', all: 'All',
+    loading: '…',
+    empty: '—',
+    error: '—',
+    unavailable: '—',
     mine: 'My rank',
-    unranked: 'No score yet',
+    unranked: '—',
     kills: 'kills', close: 'Close',
   },
 };
@@ -68,10 +67,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ board, lang = 'zh', onClose }
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#0D0B09]/92 px-4 py-6">
       <div className="w-full max-w-md rounded-2xl border border-[#E8833A]/25 bg-[#15110C] shadow-[0_20px_45px_-15px_rgba(0,0,0,0.8)] flex flex-col max-h-full">
         <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3 border-b border-[#E8833A]/15">
-          <div>
-            <h2 className="serif-text text-[1.15rem] font-bold tracking-[0.14em] text-[#E8833A]">{T.title}</h2>
-            <p className="mt-1 text-[11px] leading-snug text-[#E8833A]/45">{T.rule}</p>
-          </div>
+          <h2 className="serif-text text-[1.15rem] font-bold tracking-[0.14em] text-[#E8833A]">{T.title}</h2>
           <button onClick={onClose} aria-label={T.close} className="mt-0.5 shrink-0 text-[#E8833A]/60 hover:text-[#E8833A] transition-colors">
             <X size={20} strokeWidth={1.5} />
           </button>

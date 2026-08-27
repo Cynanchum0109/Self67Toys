@@ -16,8 +16,8 @@ interface GameProps {
 const Game: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
   // 英文为草译，待审校 → translations-review.md
   const T = lang === 'en'
-    ? { win: 'Happily wed!', retry: 'Press Space to try again', cheer: 'Go, Heathcliff~', jump: 'Jump', hintDesktopPre: 'Press ', hintDesktopKey: 'Space', hintDesktopPost: ' or click the game area to start / jump', hintMobile: 'Tap the game area or the button to start / jump' }
-    : { win: '喜结连理！', retry: '按下空格再试一次', cheer: '希斯克利夫加油～', jump: '跳跃', hintDesktopPre: '按 ', hintDesktopKey: '空格键', hintDesktopPost: ' 或点击画面 开始/跳跃', hintMobile: '点击画面或按钮开始/跳跃' };
+    ? { win: 'Happily wed!', retry: 'Press Space to try again', cheer: 'Go, Heathcliff~', jump: 'Jump', hintDesktopPre: 'Press ', hintDesktopKey: 'Space', hintDesktopPost: ' to start / jump', hintMobile: 'Tap the button above to start / jump' }
+    : { win: '喜结连理！', retry: '按下空格再试一次', cheer: '希斯克利夫加油～', jump: '跳跃', hintDesktopPre: '按 ', hintDesktopKey: '空格键', hintDesktopPost: ' 开始/跳跃', hintMobile: '点击上方按钮开始/跳跃' };
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);

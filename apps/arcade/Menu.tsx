@@ -8,28 +8,19 @@ interface MenuProps {
   onPick: (game: GameKey) => void;
 }
 
+// 名字沿用原站上的写法，没有另写文案
 const TEXT = {
   zh: {
     quote: '那呼唤爱的样子如此美丽……',
-    tagline: '三个小玩意儿，随手玩玩',
     rcopName: 'R公司孵化场观测',
-    rcopDesc: '两队克隆体自动互杀，只能看，不能插手',
-    ufoName: 'UFO 抓狗',
-    ufoDesc: '开着飞碟把狗吸上来',
+    ufoName: 'UFO抓狗游戏',
     dinoName: '碰到就要结婚喔～',
-    dinoDesc: '跳过去，别碰上——碰上就得结婚',
-    play: '进入',
   },
   en: {
-    quote: 'The way it calls for love is so beautiful…',
-    tagline: 'Three small toys, play as you like',
-    rcopName: 'R Corp Hatchery — Observation',
-    rcopDesc: 'Two clone factions kill each other on their own. Watch only.',
-    ufoName: 'UFO Dog Snatch',
-    ufoDesc: 'Fly the saucer and beam the dogs up',
+    quote: '那呼唤爱的样子如此美丽……',
+    rcopName: 'R公司孵化场观测',
+    ufoName: 'UFO dog-catching game',
     dinoName: 'Touch and you must marry~',
-    dinoDesc: 'Jump over them — a touch means a wedding',
-    play: 'Play',
   },
 };
 
@@ -105,7 +96,6 @@ const Menu: React.FC<MenuProps> = ({ lang, onToggleLang, onPick }) => {
             <path d="M2 6 C 20 1, 36 11, 56 6 S 92 1, 110 6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
             <circle cx="56" cy="6" r="1.5" fill="#6FCBB8" />
           </svg>
-          <p className="mt-4 serif-text text-[12px] tracking-[0.2em] text-[#B3A5C9]">{T.tagline}</p>
         </div>
 
         <div className="animate-float-in float-delay-2 grid w-full gap-3 sm:gap-4">
@@ -117,19 +107,8 @@ const Menu: React.FC<MenuProps> = ({ lang, onToggleLang, onPick }) => {
               style={{ ['--ring' as string]: card.ring }}
             >
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F4F1F8]">{card.icon}</span>
-              <span className="min-w-0 flex-1">
-                <span className="serif-text block text-[15px] font-semibold" style={{ color: card.accent }}>
-                  {T[`${card.key}Name` as const]}
-                </span>
-                <span className="mt-0.5 block text-[12.5px] leading-relaxed text-[#8C8397]">
-                  {T[`${card.key}Desc` as const]}
-                </span>
-              </span>
-              <span
-                className="shrink-0 rounded-full px-3.5 py-1.5 text-[11px] uppercase tracking-[0.18em] text-white transition-opacity duration-300 group-hover:opacity-90"
-                style={{ backgroundColor: card.accent }}
-              >
-                {T.play}
+              <span className="serif-text min-w-0 flex-1 text-[15px] font-semibold" style={{ color: card.accent }}>
+                {T[`${card.key}Name` as const]}
               </span>
             </button>
           ))}
