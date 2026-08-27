@@ -17,7 +17,7 @@ const TEXT = {
     dinoName: '碰到就要结婚喔～',
   },
   en: {
-    quote: '那呼唤爱的样子如此美丽……',
+    quote: 'The declaration of Love was so beautiful',
     rcopName: 'R Corp Hatchery Observation',
     ufoName: 'My Coworker Is an Alien?!',
     dinoName: 'Touch and you must marry~',
@@ -87,7 +87,7 @@ const Menu: React.FC<MenuProps> = ({ lang, onToggleLang, onPick }) => {
         </header>
 
         <div className="animate-float-in float-delay-1 max-w-md">
-          <p className="serif-text text-[1.05rem] font-medium italic leading-[1.8] tracking-[0.05em] text-[#4FAE9C] sm:text-[1.2rem]">
+          <p className="serif-text text-[1.05rem] font-medium leading-[1.8] tracking-[0.05em] text-[#4FAE9C] sm:text-[1.2rem]">
             <span className="mr-1 text-[#9BD9CC]" aria-hidden>“</span>
             {T.quote}
             <span className="ml-1 text-[#9BD9CC]" aria-hidden>”</span>
@@ -107,7 +107,7 @@ const Menu: React.FC<MenuProps> = ({ lang, onToggleLang, onPick }) => {
               style={{ ['--ring' as string]: card.ring }}
             >
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F4F1F8]">{card.icon}</span>
-              <span className="serif-text min-w-0 flex-1 text-[15px] font-semibold" style={{ color: card.accent }}>
+              <span className="serif-text min-w-0 flex-1 text-[15px] font-semibold text-[#1B1B1B]">
                 {T[`${card.key}Name` as const]}
               </span>
             </button>
