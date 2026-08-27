@@ -186,6 +186,7 @@ const Simulation: React.FC<SimulationProps> = ({ onClose, lang = 'zh' }) => {
   const speedRef = useRef(1);
   const [gameEnded, setGameEnded] = useState(false);
   const [showRank, setShowRank] = useState(false);
+  const [rankState, setRankState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const [ending, setEnding] = useState<string | null>(null);
   const finalBattleRef = useRef<{ a0: Agent | null; a1: Agent | null; started: boolean }>({ a0: null, a1: null, started: false });
   const gameEndedRef = useRef(false);
@@ -249,7 +250,9 @@ const Simulation: React.FC<SimulationProps> = ({ onClose, lang = 'zh' }) => {
     const survivors = agentsRef.current;
     if (survivors.length === 0) return;
     const best = survivors.reduce((a, b) => (b.power > a.power ? b : a));
-    submitScore(BOARD_RCOP, encodeRcop(best.power, endingKey, best.team as 0 | 1));
+    setRankState('sending');
+    submitScore(BOARD_RCOP, encodeRcop(best.power, endingKey, best.team as 0 | 1))
+      .then(ok => setRankState(ok ? 'sent' : 'failed'));
   };
 
   // 记录一次跨队互相增强的羁绊（1秒内重复触发只算一次相遇）
@@ -1154,6 +1157,7 @@ const Simulation: React.FC<SimulationProps> = ({ onClose, lang = 'zh' }) => {
 
   // 重置游戏
   const resetSimulation = () => {
+    setRankState('idle');
     isRunningRef.current = false;
     setIsRunning(false);
     pausedRef.current = false;
@@ -1330,6 +1334,11 @@ const Simulation: React.FC<SimulationProps> = ({ onClose, lang = 'zh' }) => {
             >
               {T.reclone}
             </button>
+          )}
+          {rankState !== 'idle' && (
+            <span className="font-mono text-[12px] text-[#C96A24]/70">
+              {rankState === 'sending' ? '…' : rankState === 'sent' ? '✓' : '×'}
+            </span>
           )}
         </div>
 
