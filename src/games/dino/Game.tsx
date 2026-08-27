@@ -1,6 +1,9 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, ArrowUp } from 'lucide-react';
+import { X, ArrowUp, Trophy } from 'lucide-react';
+import Leaderboard from '@/shared/Leaderboard';
+import { BOARD_DINO, decodeDino, DINO_THEME, encodeDino } from '@/shared/boards';
+import { hasRankApi, submitScore } from '@/shared/toy';
 import walk1Image from './Assets/07_walk1.png';
 import walk2Image from './Assets/07_walk2.png';
 import walk3Image from './Assets/07_walk3.png';
@@ -16,12 +19,13 @@ interface GameProps {
 const Game: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
   // 英文为草译，待审校 → translations-review.md
   const T = lang === 'en'
-    ? { win: 'Happily wed!', retry: 'Press Space to try again', cheer: 'Go, Heathcliff~', jump: 'Jump', hintDesktopPre: 'Press ', hintDesktopKey: 'Space', hintDesktopPost: ' to start / jump', hintMobile: 'Tap the button above to start / jump' }
-    : { win: '喜结连理！', retry: '按下空格再试一次', cheer: '希斯克利夫加油～', jump: '跳跃', hintDesktopPre: '按 ', hintDesktopKey: '空格键', hintDesktopPost: ' 开始/跳跃', hintMobile: '点击上方按钮开始/跳跃' };
+    ? { win: 'Happily wed!', retry: 'Press Space to try again', cheer: 'Go, Heathcliff~', jump: 'Jump', hintDesktopPre: 'Press ', hintDesktopKey: 'Space', hintDesktopPost: ' to start / jump', hintMobile: 'Tap the button above to start / jump', rank: 'Leaderboard', sec: 's' }
+    : { win: '喜结连理！', retry: '按下空格再试一次', cheer: '希斯克利夫加油～', jump: '跳跃', hintDesktopPre: '按 ', hintDesktopKey: '空格键', hintDesktopPost: ' 开始/跳跃', hintMobile: '点击上方按钮开始/跳跃', rank: '排行榜', sec: '秒' };
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showRank, setShowRank] = useState(false);
   
   // 图片引用（主角行走动画）
   const walkImagesRef = useRef<HTMLImageElement[]>([]);
@@ -299,6 +303,8 @@ const Game: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
         ) {
           setGameOver(true);
           setIsPlaying(false);
+          // 结算：坚持的秒数就是分数
+          if (score > 0 && hasRankApi()) submitScore(BOARD_DINO, encodeDino(score));
         }
       });
 
@@ -411,7 +417,14 @@ const Game: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
   return (
     <div className="fixed inset-0 bg-[#2D2438]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-[#FDFCFA] rounded-[2rem] shadow-[0_25px_50px_-12px_rgba(45,58,49,0.2)] border border-[#EAE5F0] p-6 max-w-2xl w-full animate-float-in">
-        <div className="flex justify-end items-center mb-4">
+        <div className="flex justify-end items-center gap-1 mb-4">
+          <button
+            onClick={() => setShowRank(true)}
+            className="p-2 hover:bg-[#E8F9F6] rounded-full transition-colors duration-300"
+            aria-label={T.rank}
+          >
+            <Trophy size={22} strokeWidth={1.5} className="text-[#7B5B89]" />
+          </button>
           <button
             onClick={onClose}
             className="p-2 hover:bg-[#E8F9F6] rounded-full transition-colors duration-300"
@@ -442,6 +455,21 @@ const Game: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
           <p className="md:hidden">{T.hintMobile}</p>
         </div>
       </div>
+
+      {showRank && (
+        <Leaderboard
+          board={BOARD_DINO}
+          lang={lang}
+          title={T.rank}
+          theme={DINO_THEME}
+          renderScore={(score, l) => (
+            <span className="font-mono text-[12px] font-bold text-[#7B5B89]">
+              {decodeDino(score)}{l === 'en' ? 's' : '秒'}
+            </span>
+          )}
+          onClose={() => setShowRank(false)}
+        />
+      )}
     </div>
   );
 };

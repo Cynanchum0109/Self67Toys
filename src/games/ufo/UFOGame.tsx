@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { Trophy, X } from 'lucide-react';
+import Leaderboard from '@/shared/Leaderboard';
+import { BOARD_UFO, decodeUfo, encodeUfo, UFO_SHOOTDOWN_BONUS, UFO_THEME } from '@/shared/boards';
+import { hasRankApi, submitScore } from '@/shared/toy';
 import bgPng   from './asset/background.png';
 import dog1Png from './asset/dog1.png';
 import dog2Png from './asset/dog2.png';
@@ -34,10 +37,11 @@ const overlaps = (ax:number,ay:number,aw:number,ah:number,
 const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
   // 英文为草译，待审校 → translations-review.md
   const T = lang === 'en'
-    ? { won: 'Caught the alien!', byHuman: 'Caught by the humans!', byAlien: 'Abducted by the alien!', retry: 'Try again', finalScore: 'Final score', title: 'My Coworker Is an Alien?!', start: 'Click / press Space to start', jump: 'Jump', move: 'Move', jumpWord: 'Jump', hintTail: "You can't be caught while jumping", hintMobile: '\u25c0\u25b6 Move \u00b7 \u2191 Jump \u00b7 Safe while jumping', close: 'Close' }
-    : { won: '抓到外星人了！', byHuman: '被人类抓走了！', byAlien: '被外星人抓走了！', retry: '再试一次', finalScore: '最终得分', title: '同事是外星人？！', start: '点击 / 按空格开始', jump: '跳', move: '移动', jumpWord: '跳', hintTail: '跳跃的时候是不会被抓到的', hintMobile: '\u25c0\u25b6移动 \u00b7 \u2191跳 \u00b7 跳跃时不会被抓', close: '关闭' };
+    ? { won: 'Caught the alien!', byHuman: 'Caught by the humans!', byAlien: 'Abducted by the alien!', retry: 'Try again', finalScore: 'Final score', title: 'My Coworker Is an Alien?!', start: 'Click / press Space to start', jump: 'Jump', move: 'Move', jumpWord: 'Jump', hintTail: "You can't be caught while jumping", hintMobile: '\u25c0\u25b6 Move \u00b7 \u2191 Jump \u00b7 Safe while jumping', close: 'Close', rank: 'Leaderboard', sec: 's', bonus: 'Shot down +' + UFO_SHOOTDOWN_BONUS }
+    : { won: '抓到外星人了！', byHuman: '被人类抓走了！', byAlien: '被外星人抓走了！', retry: '再试一次', finalScore: '最终得分', title: '同事是外星人？！', start: '点击 / 按空格开始', jump: '跳', move: '移动', jumpWord: '跳', hintTail: '跳跃的时候是不会被抓到的', hintMobile: '\u25c0\u25b6移动 \u00b7 \u2191跳 \u00b7 跳跃时不会被抓', close: '关闭', rank: '排行榜', sec: '秒', bonus: '击落 +' + UFO_SHOOTDOWN_BONUS };
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   const [gameOver,  setGameOver]  = useState(false);
+  const [showRank, setShowRank] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
   const scoreRef  = useRef(0);
@@ -63,7 +67,7 @@ const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
     sineT: 0,
     beamPhase: 'off' as BeamPhase,
     beamTimer: 2500, warnDur: 900, onDur: 1500, offDur: 2500,
-    track: 0.012, lastScore: 0, lastFrame: 0, animId: 0, diffT: 0,
+    track: 0.012, lastScore: 0, lastFrame: 0, startedAt: 0, animId: 0, diffT: 0,
     deathCause: 'alien' as DeathCause,
     overFadeStart: 0,
     uid: 0,
@@ -112,7 +116,18 @@ const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
     s.ufoGrounded = false; s.ufoGroundedTimer = 0;
     scoreRef.current = 0;
     const now = performance.now();
-    s.lastScore = now; s.lastFrame = now;
+    s.lastScore = now; s.lastFrame = now; s.startedAt = now;
+  };
+
+  // 结算：按存活时间计分，击落飞碟额外加分
+  const finishRun = (cause: DeathCause) => {
+    const s = S.current;
+    s.deathCause = cause;
+    setGameOver(true);
+    setIsPlaying(false);
+    if (!hasRankApi()) return;
+    const seconds = (performance.now() - s.startedAt) / 1000;
+    submitScore(BOARD_UFO, encodeUfo(seconds, cause === 'won'));
   };
 
   const beamTopY = () => S.current.ufoY + UFO_IH / 2;
@@ -408,8 +423,7 @@ const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
         if (s.ufoGrounded) {
           s.ufoGroundedTimer += dt;
           if (s.ufoGroundedTimer >= 1800) {
-            s.deathCause = 'won';
-            setGameOver(true); setIsPlaying(false);
+            finishRun('won');
           }
         }
 
@@ -467,7 +481,7 @@ const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
 
         // Beam capture
         if (s.beamPhase==='active' && dog.onGround && inBeamX()) {
-          s.deathCause='alien'; setGameOver(true); setIsPlaying(false);
+          finishRun('alien');
         }
 
         // Mint stars — slow floaty fall
@@ -502,7 +516,7 @@ const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
           r.x -= RUNNER_SPEED; r.ft++;
           if (r.ft >= 8) { r.ft=0; r.frame=(r.frame+1)%3; }
           if (overlaps(dog.x+4,dog.y+4,DOG_W-8,DOG_H-4, r.x+4,GY-RH+5,RW-8,RH-10)) {
-            s.deathCause='human'; setGameOver(true); setIsPlaying(false);
+            finishRun('human');
           }
         }
 
@@ -558,7 +572,10 @@ const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
   return (
     <div className="fixed inset-0 bg-[#0D0518]/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-[#1A0A2E] border border-[#3D2860] rounded-[2rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] p-5 max-w-lg w-full animate-float-in">
-        <div className="flex justify-end mb-3">
+        <div className="flex justify-end gap-1 mb-3">
+          <button onClick={() => setShowRank(true)} className="p-2 hover:bg-[#3D2860] rounded-full transition-colors duration-300" aria-label={T.rank}>
+            <Trophy size={20} strokeWidth={1.5} className="text-[#9D8AB5]" />
+          </button>
           <button onClick={onClose} className="p-2 hover:bg-[#3D2860] rounded-full transition-colors duration-300" aria-label={T.close}>
             <X size={20} strokeWidth={1.5} className="text-[#9D8AB5]" />
           </button>
@@ -613,6 +630,25 @@ const UFOGame: React.FC<GameProps> = ({ onClose, lang = 'zh' }) => {
           <p className="md:hidden text-xs text-[#5D4A6E]">{T.hintMobile}</p>
         </div>
       </div>
+
+      {showRank && (
+        <Leaderboard
+          board={BOARD_UFO}
+          lang={lang}
+          title={T.rank}
+          theme={UFO_THEME}
+          renderScore={(score, l) => {
+            const { points, shotDown } = decodeUfo(score);
+            return (
+              <span className="flex flex-col items-end leading-tight">
+                <span className="text-[12px] font-bold text-[#6BD4C0]">{points}{l === 'en' ? ' pts' : '分'}</span>
+                {shotDown && <span className="text-[10px] text-[#F2B6FB]">🛸 +{UFO_SHOOTDOWN_BONUS}</span>}
+              </span>
+            );
+          }}
+          onClose={() => setShowRank(false)}
+        />
+      )}
     </div>
   );
 };

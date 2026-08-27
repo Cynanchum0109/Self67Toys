@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { Trophy, X } from 'lucide-react';
+import Leaderboard from '@/shared/Leaderboard';
+import { BOARD_RCOP, decodeRcop, encodeRcop, RCOP_ENDING_LABEL, RCOP_TEAM, RCOP_THEME } from '@/shared/boards';
+import { hasRankApi, submitScore } from '@/shared/toy';
 
 interface SimulationProps {
   onClose: () => void;
@@ -10,6 +13,7 @@ interface SimulationProps {
 const UI_TEXT = {
   zh: {
     title: 'R公司孵化场观测',
+    rank: '排行榜',
     start: '开始观测',
     reclone: '重新克隆',
     pause: '暂停',
@@ -21,6 +25,7 @@ const UI_TEXT = {
   },
   en: {
     title: 'R Corp Hatchery Observation',
+    rank: 'Leaderboard',
     start: 'Begin Observation',
     reclone: 'Re-clone',
     pause: 'Pause',
@@ -180,6 +185,7 @@ const Simulation: React.FC<SimulationProps> = ({ onClose, lang = 'zh' }) => {
   const pausedRef = useRef(false);
   const speedRef = useRef(1);
   const [gameEnded, setGameEnded] = useState(false);
+  const [showRank, setShowRank] = useState(false);
   const [ending, setEnding] = useState<string | null>(null);
   const finalBattleRef = useRef<{ a0: Agent | null; a1: Agent | null; started: boolean }>({ a0: null, a1: null, started: false });
   const gameEndedRef = useRef(false);
@@ -229,11 +235,21 @@ const Simulation: React.FC<SimulationProps> = ({ onClose, lang = 'zh' }) => {
   const endGame = (endingKey: string) => {
     if (gameEndedRef.current) return;
     gameEndedRef.current = true;
+    submitEndingScore(endingKey);
     setEnding(endingKey);
     setGameEnded(true);
     isRunningRef.current = false;
     setIsRunning(false);
     finalBattleRef.current = { a0: null, a1: null, started: false };
+  };
+
+  // 结算成绩：存活者中战力最高的一个，连同队伍与结局一起编码上传
+  const submitEndingScore = (endingKey: string) => {
+    if (!hasRankApi()) return;
+    const survivors = agentsRef.current;
+    if (survivors.length === 0) return;
+    const best = survivors.reduce((a, b) => (b.power > a.power ? b : a));
+    submitScore(BOARD_RCOP, encodeRcop(best.power, endingKey, best.team as 0 | 1));
   };
 
   // 记录一次跨队互相增强的羁绊（1秒内重复触发只算一次相遇）
@@ -1197,6 +1213,14 @@ const Simulation: React.FC<SimulationProps> = ({ onClose, lang = 'zh' }) => {
       <div className="bg-white rounded-[2rem] shadow-[0_25px_50px_-12px_rgba(26,21,18,0.3)] border border-[#F6D8B5]/60 p-4 md:p-6 max-w-6xl w-full max-h-[95vh] overflow-y-auto animate-float-in">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl md:text-2xl font-bold text-[#C96A24] serif-text">{T.title}</h2>
+          <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowRank(true)}
+            className="p-2 hover:bg-[#FFF6EC] rounded-full transition-colors duration-300"
+            aria-label={T.rank}
+          >
+            <Trophy size={20} strokeWidth={1.5} className="text-[#C96A24]" />
+          </button>
           <button
             onClick={onClose}
             className="p-2 hover:bg-[#FFF6EC] rounded-full transition-colors duration-300"
@@ -1204,6 +1228,7 @@ const Simulation: React.FC<SimulationProps> = ({ onClose, lang = 'zh' }) => {
           >
             <X size={22} strokeWidth={1.5} className="text-[#C96A24]" />
           </button>
+          </div>
         </div>
 
         <div className="relative bg-[#FFFFFF] rounded-3xl p-4 border border-[#F6D8B5]/70 mb-4">
@@ -1312,6 +1337,28 @@ const Simulation: React.FC<SimulationProps> = ({ onClose, lang = 'zh' }) => {
           <p>{T.hint}</p>
         </div>
       </div>
+
+      {showRank && (
+        <Leaderboard
+          board={BOARD_RCOP}
+          lang={lang}
+          title={T.rank}
+          theme={RCOP_THEME}
+          renderScore={(score, l) => {
+            const { power, ending, team } = decodeRcop(score);
+            const side = RCOP_TEAM[team];
+            return (
+              <span className="flex flex-col items-end leading-tight">
+                <span className="font-mono text-[12px] font-bold" style={{ color: side.color }}>
+                  {power.toFixed(1)} · {l === 'en' ? side.en : side.zh}
+                </span>
+                <span className="text-[10px] text-[#C9A98A]">{RCOP_ENDING_LABEL[ending][l]}</span>
+              </span>
+            );
+          }}
+          onClose={() => setShowRank(false)}
+        />
+      )}
     </div>
   );
 };

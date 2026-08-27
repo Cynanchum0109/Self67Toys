@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Volume2, VolumeX, Trophy, RotateCw } from 'lucide-react';
 import Leaderboard from '@/shared/Leaderboard';
-import { encodeScore, hasRankApi, submitScore } from '@/shared/toy';
+import { decodeScore, encodeScore, hasRankApi, submitScore } from '@/shared/toy';
+import { BOARD_HATCH, HATCH_THEME } from '@/shared/boards';
 
-// 存活榜：击杀数为主，用时为辅（见 shared/toy.ts 的分数编码）
-const RANK_BOARD = 1;
 
 // ============================================================
 // 孵化场 —— R公司克隆体大逃杀（类吸血鬼幸存者）
@@ -801,7 +800,7 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     // 上传成绩：击杀数优先，同击杀比用时
     if (hasRankApi()) {
       setRankState('sending');
-      submitScore(RANK_BOARD, encodeScore(s.kills, elapsedMs)).then(ok => setRankState(ok ? 'sent' : 'failed'));
+      submitScore(BOARD_HATCH, encodeScore(s.kills, elapsedMs)).then(ok => setRankState(ok ? 'sent' : 'failed'));
     }
     phaseRef.current = 'ended';
     setPhase('ended');
@@ -2057,7 +2056,19 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
             </div>
           )}
 
-          {showRank && <Leaderboard board={RANK_BOARD} lang={lang} onClose={() => setShowRank(false)} />}
+          {showRank && (
+            <Leaderboard
+              board={BOARD_HATCH}
+              lang={lang}
+              title={T.rankView}
+              theme={HATCH_THEME}
+              renderScore={(score, l) => {
+                const { kills, seconds } = decodeScore(score);
+                return `${kills} ${l === 'en' ? 'kills' : '杀'} · ${seconds}s`;
+              }}
+              onClose={() => setShowRank(false)}
+            />
+          )}
 
           {/* 移动端：左移动摇杆 + 右技能摇杆（按触屏判定显示，不按宽度） */}
           {phase === 'playing' && isTouch && (
