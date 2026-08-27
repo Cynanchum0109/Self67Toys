@@ -173,9 +173,9 @@ export const decodeHatch = (
   };
 };
 
-// 1 号榜里留着早期几版编码存下的分数，解码出来是乱的；平台没有清榜接口，
-// 所以换到 2 号榜重新开始。改动编码时记得一起换榜位。
-export const BOARD_HATCH = 2;
+// 沿用 1 号榜。早期几版编码存下的分数用现在的解码器读会偏（多半是被击杀次数
+// 明显偏大），属于已知且可接受的历史数据，作者要求保留旧记录。
+export const BOARD_HATCH = 1;
 
 // 孵化场：暗底焦橙，跟游戏窗口一致
 export const HATCH_THEME: LeaderboardTheme = {
