@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Volume2, VolumeX, Trophy } from 'lucide-react';
+import { X, Volume2, VolumeX, Trophy, RotateCw } from 'lucide-react';
 import Leaderboard from '@/shared/Leaderboard';
 import { encodeScore, hasRankApi, submitScore } from '@/shared/toy';
 
@@ -311,10 +311,13 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
   // 触屏设备：窗口固定按桌面尺寸(1152宽)排版，再整体transform等比缩放适配屏幕，
   // 这样按钮/文字/画布全部与桌面同比例。竖屏时再旋转90°横置。
   const isPortrait = vp.h >= vp.w;
+  // 部分内核不支持锁定横屏，留一个手动开关，按一下翻转当前朝向
+  const [forceRotate, setForceRotate] = useState(false);
+  const rotated = forceRotate ? !isPortrait : isPortrait;
   const DESIGN_W = 1152; // 桌面 max-w-6xl
   const DESIGN_H = 816;  // 标题栏约48 + 画布1150*(2/3)
   const shellStyle: React.CSSProperties | undefined = isTouch && vp.w > 0
-    ? (isPortrait
+    ? (rotated
         ? { width: DESIGN_W, transform: `rotate(90deg) scale(${Math.min((vp.h - 8) / DESIGN_W, (vp.w - 8) / DESIGN_H)})`, animation: 'none', maxWidth: 'none', flex: 'none' }
         : { width: DESIGN_W, transform: `scale(${Math.min((vp.w - 8) / DESIGN_W, (vp.h - 8) / DESIGN_H)})`, animation: 'none', maxWidth: 'none', flex: 'none' })
     : undefined;
@@ -1682,15 +1685,23 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
   }, [draw]);
 
   // 移动端进入游戏时请求浏览器全屏（须在用户手势内调用，隐藏地址栏减少误触/边缘手势）
+  // 锁定横屏：多数内核要求先进全屏；不支持时回落到 CSS 旋转（shellStyle）
+  const lockLandscape = () => {
+    const orientation = window.screen?.orientation as (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined;
+    try {
+      orientation?.lock?.('landscape')?.catch(() => {});
+    } catch { /* 不支持就算了 */ }
+  };
   const requestAppFullscreen = () => {
     const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
     try {
-      if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
-      else el.webkitRequestFullscreen?.();
+      if (el.requestFullscreen) el.requestFullscreen().then(lockLandscape).catch(lockLandscape);
+      else { el.webkitRequestFullscreen?.(); lockLandscape(); }
     } catch { /* 不支持就算了 */ }
   };
   useEffect(() => () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    try { (window.screen?.orientation as ScreenOrientation & { unlock?: () => void })?.unlock?.(); } catch { /* 忽略 */ }
   }, []);
 
   // ---------- 开局 ----------
@@ -1889,6 +1900,15 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
             <span className="text-[12px] text-[#E8833A]/50 tracking-wider">{T.subtitle}</span>
           </div>
           <div className="flex items-center gap-3">
+            {isTouch && (
+              <button
+                onClick={() => setForceRotate(v => !v)}
+                className="text-[#E8833A]/60 hover:text-[#E8833A] transition-colors select-none"
+                aria-label={lang === 'en' ? 'rotate screen' : '旋转屏幕'}
+              >
+                <RotateCw size={18} />
+              </button>
+            )}
             <button
               onClick={() => setShowRank(true)}
               className="text-[#E8833A]/60 hover:text-[#E8833A] transition-colors select-none"
