@@ -51,29 +51,11 @@ export const hasRankApi = () => {
   return !!(t && typeof t.submitScore === 'function' && typeof t.getRankList === 'function');
 };
 
-// ---------- 分数编码 ----------
-// Toy 榜单只接受单个整数，且 SDK 限制 score ∈ [-2^24, 2^24-1]。
-// 孵化场把「击杀数 + 用时」压成一个数：
-//   score = 击杀数 × TIME_SPAN + (TIME_SPAN - 1 - 用时厘秒)
-// 击杀多的一定更大；击杀相同时，用时短的余数更大 → 排在前面。
+// ---------- 分数上下界 ----------
+// Toy 榜单只接受单个整数，SDK 限制 score ∈ [-2^24, 2^24-1]。
+// 各游戏怎么把自己的成绩压进这一个整数，见 shared/boards.ts。
 export const SCORE_MIN = -(2 ** 24);
 export const SCORE_MAX = 2 ** 24 - 1;
-
-const TIME_SPAN = 20_000; // 余数上限，对应 199.99 秒，覆盖 3 分钟一局
-const KILL_MAX = Math.floor(SCORE_MAX / TIME_SPAN); // 击杀数上限，防止越界
-
-export const encodeScore = (kills: number, elapsedMs: number): number => {
-  const k = Math.min(KILL_MAX, Math.max(0, Math.floor(kills)));
-  const cs = Math.min(TIME_SPAN - 1, Math.max(0, Math.round(elapsedMs / 10)));
-  return k * TIME_SPAN + (TIME_SPAN - 1 - cs);
-};
-
-export const decodeScore = (score: number): { kills: number; seconds: number } => {
-  const s = Math.max(0, Math.floor(score));
-  const kills = Math.floor(s / TIME_SPAN);
-  const cs = TIME_SPAN - 1 - (s % TIME_SPAN);
-  return { kills, seconds: Math.round(cs / 10) / 10 };
-};
 
 // ---------- API ----------
 export async function submitScore(board: number, score: number): Promise<boolean> {

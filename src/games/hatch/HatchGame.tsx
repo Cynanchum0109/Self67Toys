@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Volume2, VolumeX, Trophy, RotateCw } from 'lucide-react';
 import Leaderboard from '@/shared/Leaderboard';
-import { decodeScore, encodeScore, hasRankApi, setOrientation, submitScore } from '@/shared/toy';
-import { BOARD_HATCH, HATCH_THEME } from '@/shared/boards';
+import { hasRankApi, setOrientation, submitScore } from '@/shared/toy';
+import { BOARD_HATCH, decodeHatch, encodeHatch, HATCH_THEME, RCOP_TEAM } from '@/shared/boards';
 
 
 // ============================================================
@@ -800,7 +800,8 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
     // 上传成绩：击杀数优先，同击杀比用时
     if (hasRankApi()) {
       setRankState('sending');
-      submitScore(BOARD_HATCH, encodeScore(s.kills, elapsedMs)).then(ok => setRankState(ok ? 'sent' : 'failed'));
+      submitScore(BOARD_HATCH, encodeHatch(s.kills, elapsedMs, Math.max(0, s.bodies - 1), s.faction))
+        .then(ok => setRankState(ok ? 'sent' : 'failed'));
     }
     phaseRef.current = 'ended';
     setPhase('ended');
@@ -2066,8 +2067,20 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
               title={T.rankView}
               theme={HATCH_THEME}
               renderScore={(score, l) => {
-                const { kills, seconds } = decodeScore(score);
-                return `${kills} ${l === 'en' ? 'kills' : '杀'} · ${seconds}s`;
+                const { kills, seconds, deaths, team } = decodeHatch(score);
+                const side = RCOP_TEAM[team];
+                return (
+                  <span className="flex flex-col items-end leading-tight">
+                    <span className="text-[12px] font-bold" style={{ color: side.color }}>
+                      Score：{kills} · {l === 'en' ? side.en : side.zh}
+                    </span>
+                    <span className="text-[10px] text-[#E8833A]/45">
+                      {l === 'en'
+                        ? `Time ${seconds}s · Killed ${deaths}×`
+                        : `用时 ${seconds}s · 被击杀 ${deaths} 次`}
+                    </span>
+                  </span>
+                );
               }}
               onClose={() => setShowRank(false)}
             />

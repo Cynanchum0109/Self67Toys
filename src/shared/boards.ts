@@ -139,6 +139,40 @@ export const DINO_THEME: LeaderboardTheme = {
 };
 
 // ---------- 孵化场（独立作品，自己一个榜）----------
+// ---------- 孵化场：击杀数为主，用时、被击杀次数作同分排序 ----------
+// SDK 限制 score ∈ [-2^24, 2^24-1]，位宽刚好排满：
+//   score = 击杀数×32768 + (255-存活秒)×128 + (63-被击杀次数)×2 + 阵营
+// 击杀多的在上 → 同击杀用时短的在上 → 再同则被击杀少的在上；阵营只是标记。
+const HATCH_SEC_MAX = 255;
+const HATCH_DEATH_MAX = 63;
+const HATCH_KILL_MAX = 511;
+
+export const encodeHatch = (
+  kills: number,
+  elapsedMs: number,
+  deaths: number,
+  faction: 'rabbit' | 'reindeer',
+): number => {
+  const k = Math.min(HATCH_KILL_MAX, Math.max(0, Math.floor(kills)));
+  const sec = Math.min(HATCH_SEC_MAX, Math.max(0, Math.round(elapsedMs / 1000)));
+  const d = Math.min(HATCH_DEATH_MAX, Math.max(0, Math.floor(deaths)));
+  return k * 32768 + (HATCH_SEC_MAX - sec) * 128 + (HATCH_DEATH_MAX - d) * 2 + (faction === 'rabbit' ? 1 : 0);
+};
+
+export const decodeHatch = (
+  score: number,
+): { kills: number; seconds: number; deaths: number; team: 0 | 1 } => {
+  const s = Math.max(0, Math.floor(score));
+  const rest = s % 32768;
+  const low = rest % 128;
+  return {
+    kills: Math.floor(s / 32768),
+    seconds: HATCH_SEC_MAX - Math.floor(rest / 128),
+    deaths: HATCH_DEATH_MAX - Math.floor(low / 2),
+    team: (low % 2) as 0 | 1,
+  };
+};
+
 export const BOARD_HATCH = 1;
 
 // 孵化场：暗底焦橙，跟游戏窗口一致
