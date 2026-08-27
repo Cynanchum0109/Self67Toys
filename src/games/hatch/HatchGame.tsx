@@ -2068,6 +2068,14 @@ const HatchGame: React.FC<HatchGameProps> = ({ onClose, lang = 'zh', onToggleLan
               theme={HATCH_THEME}
               renderScore={(score, l) => {
                 const { kills, seconds, deaths, team } = decodeHatch(score);
+                // 早期记录没有被击杀次数与阵营，按当时的样子显示
+                if (deaths === null || team === null) {
+                  return (
+                    <span className="font-mono text-[12px] text-[#E8833A]/80">
+                      {kills} {l === 'en' ? 'kills' : '杀'}{seconds > 0 ? ` · ${seconds}s` : ''}
+                    </span>
+                  );
+                }
                 const side = RCOP_TEAM[team];
                 return (
                   <span className="flex flex-col items-end leading-tight">

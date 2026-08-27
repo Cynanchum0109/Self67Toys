@@ -138,14 +138,28 @@ export const DINO_THEME: LeaderboardTheme = {
   scoreClass: 'shrink-0 text-right',
 };
 
-// ---------- 孵化场（独立作品，自己一个榜）----------
-// ---------- 孵化场：击杀数为主，用时、被击杀次数作同分排序 ----------
-// SDK 限制 score ∈ [-2^24, 2^24-1]，位宽刚好排满：
-//   score = 击杀数×32768 + (255-存活秒)×128 + (63-被击杀次数)×2 + 阵营
-// 击杀多的在上 → 同击杀用时短的在上 → 再同则被击杀少的在上；阵营只是标记。
+// ---------- 孵化场：击杀数为主，用时 / 被击杀次数作同分排序 ----------
+// 榜上有两代数据，靠余数区间区分，早期记录必须继续读对：
+//   score = 击杀数 × 100000 + 余数
+//   余数 ≥ 80000  → 早期记录：余数 = 99999 - 用时厘秒，没有被击杀次数与阵营
+//   余数 20000..79999 → 现在的记录：这段是早期编码用不到的区间
+//     余数 = 20000 + (255-存活秒)×128 + (15-被击杀次数)×8 + 阵营
+// 最大 159×100000 + 99999 = 15,999,999，没超 SDK 的 2^24 上限。
+// 代价：击杀数相同时早期记录的余数更大，会固定排在新记录前面。
+const HATCH_KILL_SPAN = 100_000;
+const HATCH_LEGACY_FLOOR = 80_000; // 余数到这个值以上算早期记录
+const HATCH_NEW_FLOOR = 20_000; // 新记录余数的起点
 const HATCH_SEC_MAX = 255;
-const HATCH_DEATH_MAX = 63;
-const HATCH_KILL_MAX = 511;
+const HATCH_DEATH_MAX = 15;
+const HATCH_KILL_MAX = Math.floor((2 ** 24 - 1) / HATCH_KILL_SPAN); // 167
+
+export interface HatchEntry {
+  kills: number;
+  seconds: number;
+  /** 早期记录没有这两项 */
+  deaths: number | null;
+  team: 0 | 1 | null;
+}
 
 export const encodeHatch = (
   kills: number,
@@ -156,25 +170,40 @@ export const encodeHatch = (
   const k = Math.min(HATCH_KILL_MAX, Math.max(0, Math.floor(kills)));
   const sec = Math.min(HATCH_SEC_MAX, Math.max(0, Math.round(elapsedMs / 1000)));
   const d = Math.min(HATCH_DEATH_MAX, Math.max(0, Math.floor(deaths)));
-  return k * 32768 + (HATCH_SEC_MAX - sec) * 128 + (HATCH_DEATH_MAX - d) * 2 + (faction === 'rabbit' ? 1 : 0);
+  const rest =
+    HATCH_NEW_FLOOR +
+    (HATCH_SEC_MAX - sec) * 128 +
+    (HATCH_DEATH_MAX - d) * 8 +
+    (faction === 'rabbit' ? 1 : 0);
+  return k * HATCH_KILL_SPAN + rest;
 };
 
-export const decodeHatch = (
-  score: number,
-): { kills: number; seconds: number; deaths: number; team: 0 | 1 } => {
+export const decodeHatch = (score: number): HatchEntry => {
   const s = Math.max(0, Math.floor(score));
-  const rest = s % 32768;
-  const low = rest % 128;
+  const kills = Math.floor(s / HATCH_KILL_SPAN);
+  const rest = s % HATCH_KILL_SPAN;
+
+  // 早期记录：余数直接是 99999 - 用时厘秒
+  if (rest >= HATCH_LEGACY_FLOOR) {
+    return { kills, seconds: Math.round((HATCH_KILL_SPAN - 1 - rest) / 10) / 10, deaths: null, team: null };
+  }
+
+  // 更早一版短命的编码落在这段，读不回来，只保留击杀数
+  if (rest < HATCH_NEW_FLOOR) {
+    return { kills, seconds: 0, deaths: null, team: null };
+  }
+
+  const t = rest - HATCH_NEW_FLOOR;
+  const low = t % 128;
   return {
-    kills: Math.floor(s / 32768),
-    seconds: HATCH_SEC_MAX - Math.floor(rest / 128),
-    deaths: HATCH_DEATH_MAX - Math.floor(low / 2),
-    team: (low % 2) as 0 | 1,
+    kills,
+    seconds: HATCH_SEC_MAX - Math.floor(t / 128),
+    deaths: HATCH_DEATH_MAX - Math.floor(low / 8),
+    team: (low % 8 === 1 ? 1 : 0) as 0 | 1,
   };
 };
 
-// 沿用 1 号榜。早期几版编码存下的分数用现在的解码器读会偏（多半是被击杀次数
-// 明显偏大），属于已知且可接受的历史数据，作者要求保留旧记录。
+// ---------- 孵化场（独立作品，自己一个榜）----------
 export const BOARD_HATCH = 1;
 
 // 孵化场：暗底焦橙，跟游戏窗口一致
